@@ -2,17 +2,17 @@
 
 This is a separate Practical 13 copy of the Task Management application. It
 keeps the previous React frontend and adds an authenticated backend endpoint
-that asks OpenAI to suggest a short description for a task title. The suggestion
+that asks Gemini to suggest a short description for a task title. The suggestion
 is placed in the normal editable description field; the user remains in
 control of the final task.
 
 ## Run with Docker Compose
 
-Requirements: Docker Desktop with Compose v2 and an OpenAI API key for live AI
-suggestions. Create/manage a key in the
-[OpenAI API dashboard](https://platform.openai.com/api-keys). API usage may
-require available billing or credits. The rest of the task app still works when
-the key is not configured.
+Requirements: Docker Desktop with Compose v2 and a Gemini API key for live AI
+suggestions. Create/manage a key in
+[Google AI Studio](https://aistudio.google.com/app/apikey). Availability and
+quotas depend on the selected Google project and region. The rest of the task
+app still works when the key is not configured.
 
 In PowerShell, from the project root:
 
@@ -22,7 +22,7 @@ node -e "const fs=require('node:fs'); const p='.env'; const s=fs.readFileSync(p,
 notepad .env
 ```
 
-Paste your key after `OPENAI_API_KEY=` in `.env`. Keep the key private; `.env`
+Paste your key after `GEMINI_API_KEY=` in `.env`. Keep the key private; `.env`
 is ignored by Git and excluded from Docker build contexts. Never put it in React
 code, a `VITE_` variable, screenshots, or a commit. If no key is available, leave
 it blank to exercise the fallback behavior.
@@ -44,7 +44,7 @@ docker compose down
 
 ## Demonstrate graceful fallback
 
-To test without contacting OpenAI, leave `OPENAI_API_KEY` blank in `.env`,
+To test without contacting Gemini, leave `GEMINI_API_KEY` blank in `.env`,
 recreate the backend, and request a description. The UI displays the
 unavailable message while manual task entry continues to work:
 
@@ -53,28 +53,30 @@ docker compose up -d --force-recreate backend
 ```
 
 To demonstrate an upstream authentication failure, temporarily set
-`OPENAI_API_KEY=invalid-test-key` in `.env`, then run the same command. The
+`GEMINI_API_KEY=invalid-test-key` in `.env`, then run the same command. The
 backend returns a fallback message instead of exposing the provider error or
-crashing. Restore your real key afterward and recreate the backend again. Never
-commit the real key.
+crashing. Restore your valid key afterward and recreate the backend again.
+Never commit the real key.
 
-## Troubleshooting OpenAI responses
+## Troubleshooting Gemini responses
 
-- **Key rejected:** create a new key in the intended OpenAI project and replace
-  `OPENAI_API_KEY` in `.env`. Recreate the backend with
+- **Key rejected:** create a new key in the intended Google AI Studio project
+  and replace `GEMINI_API_KEY` in `.env`. Recreate the backend with
   `docker compose up -d --force-recreate backend`.
-- **Quota or billing message:** check the project's API usage limits and billing
-  in the OpenAI platform. Having a ChatGPT subscription does not necessarily
-  include API credit.
-- **Model access message:** check that the selected project can use the model
-  named in `OPENAI_MODEL`.
+- **Quota or usage-limit message:** check the selected Gemini project's quota
+  and usage limits in Google AI Studio.
+- **Project access denied:** verify the key comes from a Google AI Studio
+  project with Gemini API access. If the key has API restrictions, allow the
+  Generative Language API for server-side requests.
+- **Model access message:** check that the selected project and region can use
+  the model named in `GEMINI_MODEL`.
 - **Changed `.env` but behavior did not change:** recreate the backend as shown
   above so Compose reloads its environment.
 
 ## Local tests and frontend build
 
-The tests mock the OpenAI request; they do not use a real API key or make paid
-API calls.
+The tests mock the Gemini request; they do not use a real API key or call the
+external service.
 
 ```powershell
 npm --prefix backend ci
@@ -87,7 +89,7 @@ npm --prefix frontend run build
 
 - `POST /api/ai/generate-description` requires the existing bearer-token
   authentication and accepts `{ "title": "..." }`.
-- The backend sends only the task title to OpenAI. The API key remains in the
+- The backend sends only the task title to Gemini. The API key remains in the
   backend environment.
 - Each authenticated user can request a description once per normalized task
   title every minute. The in-memory rate limit is intended for this practical,

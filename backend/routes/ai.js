@@ -21,12 +21,12 @@ router.post('/generate-description', async (req, res) => {
     });
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return res.json({
       description: '',
       fallback: true,
-      message: 'AI suggestions are unavailable until an OpenAI API key is configured. You can still write your description and add the task.',
+      message: 'AI suggestions are unavailable until a Gemini API key is configured. You can still write your description and add the task.',
     });
   }
 
@@ -47,54 +47,56 @@ router.post('/generate-description', async (req, res) => {
   requestTimes.set(rateLimitKey, now);
 
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
-        max_tokens: 120,
-        messages: [
-          {
-            role: 'system',
-            content: 'Write one concise, practical task description based only on the task title. Do not add a deadline or claim facts that were not provided.',
+    const model = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+      {
+        method: 'POST',
+        headers: {
+          'x-goog-api-key': apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [{
+              text: 'Write one concise, practical task description based only on the task title. Do not add a deadline or claim facts that were not provided.',
+            }],
           },
-          { role: 'user', content: `Task title: ${title}` },
-        ],
-      }),
-      signal: AbortSignal.timeout(15000),
-    });
+          contents: [{
+            role: 'user',
+            parts: [{ text: `Task title: ${title}` }],
+          }],
+          generationConfig: { maxOutputTokens: 120 },
+        }),
+        signal: AbortSignal.timeout(15000),
+      }
+    );
 
     if (!response.ok) {
       let errorCode = '';
       try {
         const errorBody = await response.json();
-        const providerCode = errorBody.error?.code || errorBody.error?.type;
+        const providerCode = errorBody.error?.status || errorBody.error?.reason;
         if (typeof providerCode === 'string') {
           errorCode = providerCode.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80);
         }
       } catch (error) {
-        console.warn('[AI] OpenAI returned an unreadable error response.');
+        console.warn('[AI] Gemini returned an unreadable error response.');
       }
 
-      console.warn(`[AI] OpenAI request failed with status ${response.status}${errorCode ? ` (${errorCode})` : ''}.`);
+      console.warn(`[AI] Gemini request failed with status ${response.status}${errorCode ? ` (${errorCode})` : ''}.`);
       let message = 'The AI service could not generate a suggestion right now. You can still write your description and add the task.';
 
-      if (response.status === 401) {
-        message = 'OpenAI rejected the configured API key. Replace it with a valid key in .env, then recreate the backend service.';
+      if ((response.status === 400 && errorCode === 'API_KEY_INVALID') || response.status === 401) {
+        message = 'Gemini rejected the configured API key. Replace it with a valid key in .env, then recreate the backend service.';
       } else if (response.status === 403) {
-        message = 'The configured OpenAI project does not have permission to use this model. Check the project and model access.';
-      } else if (
-        response.status === 429
-        && ['insufficient_quota', 'billing_hard_limit_reached'].includes(errorCode)
-      ) {
-        message = 'OpenAI reports that this account has no available API quota or billing credit. Check the API billing and usage limits.';
+        message = 'Google denied this project access to Gemini generation. Check that the key belongs to an AI Studio project with Gemini API access and that its API restrictions allow the Generative Language API.';
+      } else if (response.status === 429 && ['RESOURCE_EXHAUSTED', 'QUOTA_EXCEEDED'].includes(errorCode)) {
+        message = 'Gemini reports that the API quota is exhausted. Check the Google AI Studio project quota and try again later.';
       } else if (response.status === 429) {
-        message = 'OpenAI is rate-limiting requests. Wait a little and try again.';
+        message = 'Gemini is rate-limiting requests. Wait a little and try again.';
       } else if (response.status === 404) {
-        message = 'The configured OpenAI model is unavailable. Check OPENAI_MODEL in .env.';
+        message = 'The configured Gemini model is unavailable. Check GEMINI_MODEL in .env.';
       }
 
       return res.json({
@@ -105,9 +107,12 @@ router.post('/generate-description', async (req, res) => {
     }
 
     const result = await response.json();
-    const description = result.choices?.[0]?.message?.content?.trim();
+    const description = result.candidates?.[0]?.content?.parts
+      ?.map((part) => part.text || '')
+      .join('')
+      .trim();
     if (!description) {
-      console.warn('[AI] OpenAI returned an empty description.');
+      console.warn('[AI] Gemini returned an empty description.');
       return res.json({
         description: '',
         fallback: true,

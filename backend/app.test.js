@@ -30,10 +30,10 @@ describe('Task Management API', () => {
 
 describe('AI description endpoint', () => {
   const originalFetch = global.fetch;
-  const originalApiKey = process.env.OPENAI_API_KEY;
+  const originalApiKey = process.env.GEMINI_API_KEY;
 
   beforeEach(() => {
-    process.env.OPENAI_API_KEY = 'test-api-key';
+    process.env.GEMINI_API_KEY = 'test-api-key';
     global.fetch = jest.fn();
   });
 
@@ -41,9 +41,9 @@ describe('AI description endpoint', () => {
     global.fetch = originalFetch;
     jest.restoreAllMocks();
     if (originalApiKey === undefined) {
-      delete process.env.OPENAI_API_KEY;
+      delete process.env.GEMINI_API_KEY;
     } else {
-      process.env.OPENAI_API_KEY = originalApiKey;
+      process.env.GEMINI_API_KEY = originalApiKey;
     }
   });
 
@@ -66,11 +66,15 @@ describe('AI description endpoint', () => {
     expect(response.body.error).toMatch(/title is required/i);
   });
 
-  test('returns an editable description from OpenAI', async () => {
+  test('returns an editable description from Gemini', async () => {
     global.fetch.mockResolvedValue({
       ok: true,
       json: async () => ({
-        choices: [{ message: { content: 'Gather the key points and prepare clear presentation slides.' } }],
+        candidates: [{
+          content: {
+            parts: [{ text: 'Gather the key points and prepare clear presentation slides.' }],
+          },
+        }],
       }),
     });
 
@@ -86,11 +90,12 @@ describe('AI description endpoint', () => {
       message: 'AI-generated suggestion. Review and edit it before adding the task.',
     });
     expect(global.fetch).toHaveBeenCalledTimes(1);
-    expect(global.fetch.mock.calls[0][1].headers.Authorization).toBe('Bearer test-api-key');
+    expect(global.fetch.mock.calls[0][1].headers['x-goog-api-key']).toBe('test-api-key');
+    expect(global.fetch.mock.calls[0][0]).toContain('/models/gemini-3.8-flash:generateContent');
   });
 
   test('returns a useful fallback when the API key is not configured', async () => {
-    delete process.env.OPENAI_API_KEY;
+    delete process.env.GEMINI_API_KEY;
 
     const response = await request(app)
       .post('/api/ai/generate-description')
@@ -100,50 +105,69 @@ describe('AI description endpoint', () => {
     expect(response.statusCode).toBe(200);
     expect(response.body.fallback).toBe(true);
     expect(response.body.description).toBe('');
-    expect(response.body.message).toMatch(/API key is configured/i);
+    expect(response.body.message).toMatch(/Gemini API key is configured/i);
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
-  test('explains when OpenAI rejects the configured API key without exposing provider details', async () => {
+  test('explains when Gemini rejects the configured API key without exposing provider details', async () => {
     global.fetch.mockResolvedValue({
       ok: false,
-      status: 401,
-      json: async () => ({ error: { message: 'sensitive provider response', code: 'invalid_api_key' } }),
+      status: 400,
+      json: async () => ({ error: { message: 'sensitive provider response', status: 'API_KEY_INVALID' } }),
     });
     const warning = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
     const response = await request(app)
       .post('/api/ai/generate-description')
       .set('Authorization', authHeader())
-      .send({ title: 'Prepare presentation with a rejected key' });
+      .send({ title: 'Prepare presentation with a rejected Gemini key' });
 
     expect(response.statusCode).toBe(200);
     expect(response.body.fallback).toBe(true);
-    expect(response.body.message).toMatch(/rejected the configured API key/i);
+    expect(response.body.message).toMatch(/Gemini rejected the configured API key/i);
     expect(JSON.stringify(response.body)).not.toContain('sensitive provider response');
-    expect(warning).toHaveBeenCalledWith(expect.stringContaining('invalid_api_key'));
+    expect(warning).toHaveBeenCalledWith(expect.stringContaining('API_KEY_INVALID'));
   });
 
-  test('explains when the OpenAI account has no API quota', async () => {
+  test('explains when the Gemini project has exhausted its API quota', async () => {
     global.fetch.mockResolvedValue({
       ok: false,
       status: 429,
-      json: async () => ({ error: { message: 'sensitive provider response', code: 'insufficient_quota' } }),
+      json: async () => ({ error: { message: 'sensitive provider response', status: 'RESOURCE_EXHAUSTED' } }),
     });
     jest.spyOn(console, 'warn').mockImplementation(() => {});
 
     const response = await request(app)
       .post('/api/ai/generate-description')
       .set('Authorization', authHeader())
-      .send({ title: 'Prepare presentation with unavailable quota' });
+      .send({ title: 'Prepare presentation with unavailable Gemini quota' });
 
     expect(response.statusCode).toBe(200);
     expect(response.body.fallback).toBe(true);
-    expect(response.body.message).toMatch(/no available API quota or billing credit/i);
+    expect(response.body.message).toMatch(/Gemini reports that the API quota is exhausted/i);
     expect(JSON.stringify(response.body)).not.toContain('sensitive provider response');
   });
 
-  test('gracefully handles a timed-out OpenAI request', async () => {
+  test('explains when Google denies Gemini generation access to the project', async () => {
+    global.fetch.mockResolvedValue({
+      ok: false,
+      status: 403,
+      json: async () => ({ error: { message: 'sensitive provider response', status: 'PERMISSION_DENIED' } }),
+    });
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const response = await request(app)
+      .post('/api/ai/generate-description')
+      .set('Authorization', authHeader())
+      .send({ title: 'Prepare presentation with denied project access' });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body.fallback).toBe(true);
+    expect(response.body.message).toMatch(/Google denied this project access to Gemini generation/i);
+    expect(JSON.stringify(response.body)).not.toContain('sensitive provider response');
+  });
+
+  test('gracefully handles a timed-out Gemini request', async () => {
     global.fetch.mockRejectedValue(new Error('request timed out'));
     jest.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -161,7 +185,11 @@ describe('AI description endpoint', () => {
     global.fetch.mockResolvedValue({
       ok: true,
       json: async () => ({
-        choices: [{ message: { content: 'Review the project requirements and outline the implementation steps.' } }],
+        candidates: [{
+          content: {
+            parts: [{ text: 'Review the project requirements and outline the implementation steps.' }],
+          },
+        }],
       }),
     });
 

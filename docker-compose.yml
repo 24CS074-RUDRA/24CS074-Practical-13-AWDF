@@ -22,8 +22,8 @@ services:
       MONGO_URI: mongodb://mongodb:27017/taskdb
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in the project root .env file}
       CACHE_ENABLED: "true"
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.8-flash}
     depends_on:
       mongodb:
         condition: service_healthy
