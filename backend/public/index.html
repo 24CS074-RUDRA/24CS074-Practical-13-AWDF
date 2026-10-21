@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Task Management Application with JWT Authentication - Practical 7 AWDF" />
+  <title>TaskFlow — Task Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <!-- ─── Toast Notification ──────────────────────────────────── -->
+  <div id="toast" class="toast" role="alert"></div>
+
+  <!-- ─── Auth View (Login / Register) ────────────────────────── -->
+  <div id="auth-view" class="view active">
+    <div class="auth-bg">
+      <div class="floating-orb orb-1"></div>
+      <div class="floating-orb orb-2"></div>
+      <div class="floating-orb orb-3"></div>
+    </div>
+
+    <div class="auth-container">
+      <div class="auth-brand">
+        <div class="brand-icon">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+            <rect width="40" height="40" rx="12" fill="url(#grad1)"/>
+            <path d="M12 20L18 26L28 14" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            <defs><linearGradient id="grad1" x1="0" y1="0" x2="40" y2="40"><stop stop-color="#6366f1"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient></defs>
+          </svg>
+        </div>
+        <h1>TaskFlow</h1>
+        <p class="brand-subtitle">Manage your tasks with ease</p>
+      </div>
+
+      <div class="auth-card glass-card">
+        <!-- Tab Switcher -->
+        <div class="auth-tabs">
+          <button id="login-tab" class="auth-tab active" onclick="switchAuthTab('login')">Sign In</button>
+          <button id="register-tab" class="auth-tab" onclick="switchAuthTab('register')">Sign Up</button>
+          <div id="tab-indicator" class="tab-indicator"></div>
+        </div>
+
+        <!-- Login Form -->
+        <form id="login-form" class="auth-form active" onsubmit="handleLogin(event)">
+          <div class="form-group">
+            <label for="login-email">Email</label>
+            <input type="email" id="login-email" placeholder="you@example.com" required autocomplete="email" />
+          </div>
+          <div class="form-group">
+            <label for="login-password">Password</label>
+            <input type="password" id="login-password" placeholder="Enter your password" required minlength="6" autocomplete="current-password" />
+          </div>
+          <button type="submit" id="login-btn" class="btn btn-primary btn-full">
+            <span class="btn-text">Sign In</span>
+            <span class="btn-loader"></span>
+          </button>
+        </form>
+
+        <!-- Register Form -->
+        <form id="register-form" class="auth-form" onsubmit="handleRegister(event)">
+          <div class="form-group">
+            <label for="register-name">Name</label>
+            <input type="text" id="register-name" placeholder="Your name" autocomplete="name" />
+          </div>
+          <div class="form-group">
+            <label for="register-email">Email</label>
+            <input type="email" id="register-email" placeholder="you@example.com" required autocomplete="email" />
+          </div>
+          <div class="form-group">
+            <label for="register-password">Password</label>
+            <input type="password" id="register-password" placeholder="Min 6 characters" required minlength="6" autocomplete="new-password" />
+          </div>
+          <button type="submit" id="register-btn" class="btn btn-primary btn-full">
+            <span class="btn-text">Create Account</span>
+            <span class="btn-loader"></span>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Dashboard View ──────────────────────────────────────── -->
+  <div id="dashboard-view" class="view">
+    <!-- Top Navigation -->
+    <header class="dashboard-header">
+      <div class="header-left">
+        <div class="brand-icon-sm">
+          <svg width="28" height="28" viewBox="0 0 40 40" fill="none">
+            <rect width="40" height="40" rx="12" fill="url(#grad2)"/>
+            <path d="M12 20L18 26L28 14" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            <defs><linearGradient id="grad2" x1="0" y1="0" x2="40" y2="40"><stop stop-color="#6366f1"/><stop offset="1" stop-color="#8b5cf6"/></linearGradient></defs>
+          </svg>
+        </div>
+        <h2>TaskFlow</h2>
+      </div>
+      <div class="header-right">
+        <div class="user-info">
+          <div class="user-avatar" id="user-avatar">U</div>
+          <span id="user-name" class="user-name-text">User</span>
+        </div>
+        <button id="logout-btn" class="btn btn-ghost" onclick="handleLogout()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+          Logout
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="dashboard-main">
+      <!-- Stats Bar -->
+      <div class="stats-bar">
+        <div class="stat-card glass-card">
+          <div class="stat-icon stat-total">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value" id="stat-total">0</span>
+            <span class="stat-label">Total</span>
+          </div>
+        </div>
+        <div class="stat-card glass-card">
+          <div class="stat-icon stat-pending">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value" id="stat-pending">0</span>
+            <span class="stat-label">Pending</span>
+          </div>
+        </div>
+        <div class="stat-card glass-card">
+          <div class="stat-icon stat-progress">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value" id="stat-progress">0</span>
+            <span class="stat-label">In Progress</span>
+          </div>
+        </div>
+        <div class="stat-card glass-card">
+          <div class="stat-icon stat-completed">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value" id="stat-completed">0</span>
+            <span class="stat-label">Completed</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Task Creation Form -->
+      <div class="task-form-section glass-card">
+        <h3>Create New Task</h3>
+        <form id="task-form" onsubmit="handleCreateTask(event)">
+          <div class="form-row">
+            <div class="form-group flex-2">
+              <label for="task-title">Title *</label>
+              <input type="text" id="task-title" placeholder="What needs to be done?" required maxlength="200" />
+            </div>
+            <div class="form-group flex-1">
+              <label for="task-priority">Priority</label>
+              <select id="task-priority">
+                <option value="low">Low</option>
+                <option value="medium" selected>Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="task-description">Description</label>
+            <textarea id="task-description" placeholder="Add some details..." rows="2" maxlength="1000"></textarea>
+          </div>
+          <button type="submit" id="create-task-btn" class="btn btn-primary">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span class="btn-text">Add Task</span>
+            <span class="btn-loader"></span>
+          </button>
+        </form>
+      </div>
+
+      <!-- Filter Bar -->
+      <div class="filter-bar">
+        <h3>Your Tasks</h3>
+        <div class="filter-buttons">
+          <button class="filter-btn active" data-filter="all" onclick="filterTasks('all')">All</button>
+          <button class="filter-btn" data-filter="pending" onclick="filterTasks('pending')">Pending</button>
+          <button class="filter-btn" data-filter="in-progress" onclick="filterTasks('in-progress')">In Progress</button>
+          <button class="filter-btn" data-filter="completed" onclick="filterTasks('completed')">Completed</button>
+        </div>
+      </div>
+
+      <!-- Task List -->
+      <div id="task-list" class="task-list">
+        <!-- Tasks rendered by JS -->
+      </div>
+
+      <!-- Empty State -->
+      <div id="empty-state" class="empty-state" style="display: none;">
+        <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.3">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+        </svg>
+        <p>No tasks yet. Create one above!</p>
+      </div>
+
+      <!-- Loading State -->
+      <div id="loading-state" class="loading-state" style="display: none;">
+        <div class="spinner"></div>
+        <p>Loading tasks...</p>
+      </div>
+    </main>
+  </div>
+
+  <!-- ─── Edit Modal ──────────────────────────────────────────── -->
+  <div id="edit-modal" class="modal-overlay" style="display: none;">
+    <div class="modal glass-card">
+      <div class="modal-header">
+        <h3>Edit Task</h3>
+        <button class="btn-close" onclick="closeEditModal()">✕</button>
+      </div>
+      <form id="edit-form" onsubmit="handleUpdateTask(event)">
+        <input type="hidden" id="edit-task-id" />
+        <div class="form-group">
+          <label for="edit-title">Title *</label>
+          <input type="text" id="edit-title" required maxlength="200" />
+        </div>
+        <div class="form-group">
+          <label for="edit-description">Description</label>
+          <textarea id="edit-description" rows="3" maxlength="1000"></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group flex-1">
+            <label for="edit-status">Status</label>
+            <select id="edit-status">
+              <option value="pending">Pending</option>
+              <option value="in-progress">In Progress</option>
+              <option value="completed">Completed</option>
+            </select>
+          </div>
+          <div class="form-group flex-1">
+            <label for="edit-priority">Priority</label>
+            <select id="edit-priority">
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" onclick="closeEditModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">
+            <span class="btn-text">Save Changes</span>
+            <span class="btn-loader"></span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ─── Delete Confirmation Modal ───────────────────────────── -->
+  <div id="delete-modal" class="modal-overlay" style="display: none;">
+    <div class="modal glass-card modal-sm">
+      <div class="modal-header">
+        <h3>Delete Task</h3>
+        <button class="btn-close" onclick="closeDeleteModal()">✕</button>
+      </div>
+      <p class="modal-text">Are you sure you want to delete this task? This action cannot be undone.</p>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeDeleteModal()">Cancel</button>
+        <button id="confirm-delete-btn" class="btn btn-danger" onclick="confirmDelete()">
+          <span class="btn-text">Delete</span>
+          <span class="btn-loader"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
