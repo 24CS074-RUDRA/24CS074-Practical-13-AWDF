@@ -443,7 +443,7 @@ function Home() {
                 onChange={(e) => setDescription(e.target.value)}
               />
               <p className="ai-disclaimer">
-                AI uses the task title via OpenAI. Do not include personal, confidential, or sensitive information.
+                AI uses the task title via Gemini. Do not include personal, confidential, or sensitive information.
                 Review and edit suggestions before using them.
               </p>
               {aiFeedback && (

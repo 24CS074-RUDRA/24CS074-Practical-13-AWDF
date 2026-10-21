@@ -105,7 +105,7 @@ npm --prefix frontend run build
 
 ## Responsible AI and privacy
 
-Task titles are sent to OpenAI when a user requests a description. Do not submit
+Task titles are sent to Gemini when a user requests a description. Do not submit
 personal, confidential, regulated, or otherwise sensitive information. The
 suggestion can be inaccurate or unsuitable: review and edit it before use. The
 feature is optional, and ordinary task management continues to work if the
