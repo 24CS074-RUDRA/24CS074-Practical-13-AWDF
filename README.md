@@ -58,6 +58,19 @@ backend returns a fallback message instead of exposing the provider error or
 crashing. Restore your real key afterward and recreate the backend again. Never
 commit the real key.
 
+## Troubleshooting OpenAI responses
+
+- **Key rejected:** create a new key in the intended OpenAI project and replace
+  `OPENAI_API_KEY` in `.env`. Recreate the backend with
+  `docker compose up -d --force-recreate backend`.
+- **Quota or billing message:** check the project's API usage limits and billing
+  in the OpenAI platform. Having a ChatGPT subscription does not necessarily
+  include API credit.
+- **Model access message:** check that the selected project can use the model
+  named in `OPENAI_MODEL`.
+- **Changed `.env` but behavior did not change:** recreate the backend as shown
+  above so Compose reloads its environment.
+
 ## Local tests and frontend build
 
 The tests mock the OpenAI request; they do not use a real API key or make paid
@@ -83,6 +96,10 @@ npm --prefix frontend run build
   user-readable fallback while leaving manual description entry and task
   creation available. Invalid input returns `400`; a rate-limited request
   returns `429`.
+- Provider authentication errors, quota exhaustion, rate limits, missing model
+  access, and temporary outages have distinct user-readable fallback messages.
+  The backend logs only the provider status and a sanitized error code, never
+  the key or full provider response.
 
 ## Responsible AI and privacy
 

@@ -68,11 +68,39 @@ router.post('/generate-description', async (req, res) => {
     });
 
     if (!response.ok) {
-      console.warn(`[AI] OpenAI request failed with status ${response.status}.`);
+      let errorCode = '';
+      try {
+        const errorBody = await response.json();
+        const providerCode = errorBody.error?.code || errorBody.error?.type;
+        if (typeof providerCode === 'string') {
+          errorCode = providerCode.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80);
+        }
+      } catch (error) {
+        console.warn('[AI] OpenAI returned an unreadable error response.');
+      }
+
+      console.warn(`[AI] OpenAI request failed with status ${response.status}${errorCode ? ` (${errorCode})` : ''}.`);
+      let message = 'The AI service could not generate a suggestion right now. You can still write your description and add the task.';
+
+      if (response.status === 401) {
+        message = 'OpenAI rejected the configured API key. Replace it with a valid key in .env, then recreate the backend service.';
+      } else if (response.status === 403) {
+        message = 'The configured OpenAI project does not have permission to use this model. Check the project and model access.';
+      } else if (
+        response.status === 429
+        && ['insufficient_quota', 'billing_hard_limit_reached'].includes(errorCode)
+      ) {
+        message = 'OpenAI reports that this account has no available API quota or billing credit. Check the API billing and usage limits.';
+      } else if (response.status === 429) {
+        message = 'OpenAI is rate-limiting requests. Wait a little and try again.';
+      } else if (response.status === 404) {
+        message = 'The configured OpenAI model is unavailable. Check OPENAI_MODEL in .env.';
+      }
+
       return res.json({
         description: '',
         fallback: true,
-        message: 'The AI service could not generate a suggestion right now. You can still write your description and add the task.',
+        message,
       });
     }
 

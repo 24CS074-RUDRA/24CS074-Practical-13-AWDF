@@ -104,18 +104,43 @@ describe('AI description endpoint', () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
-  test('gracefully handles an OpenAI API error', async () => {
-    global.fetch.mockResolvedValue({ ok: false, status: 401 });
+  test('explains when OpenAI rejects the configured API key without exposing provider details', async () => {
+    global.fetch.mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({ error: { message: 'sensitive provider response', code: 'invalid_api_key' } }),
+    });
     const warning = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
     const response = await request(app)
       .post('/api/ai/generate-description')
       .set('Authorization', authHeader())
-      .send({ title: 'Prepare presentation with invalid API key' });
+      .send({ title: 'Prepare presentation with a rejected key' });
 
     expect(response.statusCode).toBe(200);
     expect(response.body.fallback).toBe(true);
-    expect(response.body.message).toMatch(/could not generate/i);
+    expect(response.body.message).toMatch(/rejected the configured API key/i);
+    expect(JSON.stringify(response.body)).not.toContain('sensitive provider response');
+    expect(warning).toHaveBeenCalledWith(expect.stringContaining('invalid_api_key'));
+  });
+
+  test('explains when the OpenAI account has no API quota', async () => {
+    global.fetch.mockResolvedValue({
+      ok: false,
+      status: 429,
+      json: async () => ({ error: { message: 'sensitive provider response', code: 'insufficient_quota' } }),
+    });
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const response = await request(app)
+      .post('/api/ai/generate-description')
+      .set('Authorization', authHeader())
+      .send({ title: 'Prepare presentation with unavailable quota' });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body.fallback).toBe(true);
+    expect(response.body.message).toMatch(/no available API quota or billing credit/i);
+    expect(JSON.stringify(response.body)).not.toContain('sensitive provider response');
   });
 
   test('gracefully handles a timed-out OpenAI request', async () => {
