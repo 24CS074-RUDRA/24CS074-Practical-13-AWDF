@@ -34,7 +34,7 @@ docker compose up --build -d
 docker compose ps
 ```
 
-Open <http://localhost:5173>, register or sign in, enter a task title, then
+Open <http://localhost:3000>, register or sign in, enter a task title, then
 choose **Generate description**. Review and edit the suggestion before adding
 the task. Stop the containers with:
 
